@@ -1,0 +1,11 @@
+version: v2
+clean: true
+managed:
+  enabled: true
+plugins:
+  - local: protoc-gen-es
+    out: src/gen
+    include_imports: true
+    opt:
+      - target=ts
+      - import_extension=.js

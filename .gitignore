@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+.venv/
+dist/
+*.tsbuildinfo
+
+# Generated (committed for convenience after first gen; regenerate with bun run gen)
+# src/gen/ is generated - we commit it so consumers don't need buf
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Test / coverage
+coverage/
+*.log
+
+# Scratch
+scratch/
+tmp/

@@ -1,0 +1,62 @@
+{
+  "name": "xai-sdk-js",
+  "version": "0.1.0",
+  "description": "TypeScript/JavaScript SDK for the xAI API (gRPC)",
+  "license": "Apache-2.0",
+  "author": "imfaisii",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./proto/*": "./dist/gen/*"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "gen": "buf generate",
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "prepublishOnly": "bun run gen && bun run build && bun run typecheck && bun test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/imfaisii/xai-sdk-typescript.git"
+  },
+  "keywords": [
+    "xai",
+    "grok",
+    "sdk",
+    "typescript",
+    "grpc",
+    "llm"
+  ],
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.2.0",
+    "@connectrpc/connect": "^2.0.0",
+    "@connectrpc/connect-node": "^2.0.0",
+    "xai-sdk-js": "^0.1.0"
+  },
+  "devDependencies": {
+    "@bufbuild/buf": "^1.47.0",
+    "@bufbuild/protoc-gen-es": "^2.2.0",
+    "@types/bun": "^1.2.0",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
