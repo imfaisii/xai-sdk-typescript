@@ -215,6 +215,27 @@ bun test
 bun run build     # tsup → dist/
 ```
 
+## Releasing (npm + GitHub)
+
+The npm package is linked to this repo via `package.json` `repository` / `homepage` / `bugs`.
+
+Publishing is automated by [`.github/workflows/release.yml`](.github/workflows/release.yml):
+
+1. Add repo secret **`NPM_TOKEN`** (npm access token with publish access)  
+   GitHub → **Settings → Secrets and variables → Actions → New repository secret**
+2. Bump and ship a tag:
+
+```bash
+# bump package.json + src/version.ts, commit, tag vX.Y.Z, push
+./scripts/release.sh 0.1.2
+
+# or tag the version already in package.json
+./scripts/release.sh
+```
+
+Pushing tag `v*` runs CI build/tests, `npm publish`, and creates a GitHub Release with notes.  
+Creating a GitHub Release from an existing `v*` tag also triggers publish (skips npm if that version already exists).
+
 ## License
 
 Apache-2.0 — same as the Python SDK and xAI protos where applicable.

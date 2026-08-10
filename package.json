@@ -29,11 +29,16 @@
     "build": "tsup",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
+    "release": "bash ./scripts/release.sh",
     "prepublishOnly": "bun run gen && bun run build && bun run typecheck && bun test"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/imfaisii/xai-sdk-typescript.git"
+  },
+  "homepage": "https://github.com/imfaisii/xai-sdk-typescript#readme",
+  "bugs": {
+    "url": "https://github.com/imfaisii/xai-sdk-typescript/issues"
   },
   "keywords": [
     "xai",

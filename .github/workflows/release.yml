@@ -1,0 +1,123 @@
+# Publish xai-sdk-js to npm and create a GitHub Release when a version tag is pushed.
+#
+# Flow:
+#   1. Bump version in package.json + src/version.ts
+#   2. Commit, then: git tag v0.1.2 && git push origin main --tags
+#   3. This workflow publishes to npm and opens the GitHub Release
+#
+# Required repo secret:
+#   NPM_TOKEN — npm access token with publish rights for xai-sdk-js
+#   (GitHub → Settings → Secrets and variables → Actions)
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g. v0.1.2). Defaults to package.json version."
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node (npm publish)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Resolve version
+        id: meta
+        run: |
+          set -euo pipefail
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          SRC_VERSION=$(node -p "require('fs').readFileSync('src/version.ts','utf8').match(/VERSION\\s*=\\s*\"([^\"]+)\"/)[1]")
+          if [ "$PKG_VERSION" != "$SRC_VERSION" ]; then
+            echo "package.json version ($PKG_VERSION) != src/version.ts ($SRC_VERSION)"
+            exit 1
+          fi
+
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAG="${GITHUB_REF_NAME}"
+          elif [ "${{ github.event_name }}" = "release" ]; then
+            TAG="${{ github.event.release.tag_name }}"
+          else
+            TAG="${{ inputs.tag }}"
+            if [ -z "$TAG" ]; then
+              TAG="v${PKG_VERSION}"
+            fi
+          fi
+
+          TAG_VERSION="${TAG#v}"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "Tag $TAG does not match package.json version $PKG_VERSION"
+            exit 1
+          fi
+
+          # Skip if this version is already on npm
+          if npm view "xai-sdk-js@${PKG_VERSION}" version >/dev/null 2>&1; then
+            echo "already_published=true" >> "$GITHUB_OUTPUT"
+            echo "xai-sdk-js@${PKG_VERSION} already on npm — will ensure GitHub release only"
+          else
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "version=${PKG_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${PKG_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Releasing xai-sdk-js@${PKG_VERSION} (tag v${PKG_VERSION})"
+
+      - name: Generate / typecheck / test / build
+        run: |
+          bun run gen
+          bun run typecheck
+          bun test
+          bun run build
+
+      - name: Publish to npm
+        if: steps.meta.outputs.already_published != 'true'
+        run: npm publish --access public --ignore-scripts
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: v${{ steps.meta.outputs.version }}
+          generate_release_notes: true
+          body: |
+            ## xai-sdk-js@${{ steps.meta.outputs.version }}
+
+            Install:
+            ```bash
+            npm install xai-sdk-js@${{ steps.meta.outputs.version }}
+            ```
+
+            npm: https://www.npmjs.com/package/xai-sdk-js/v/${{ steps.meta.outputs.version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
