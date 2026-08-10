@@ -8,7 +8,6 @@
         "@bufbuild/protobuf": "^2.2.0",
         "@connectrpc/connect": "^2.0.0",
         "@connectrpc/connect-node": "^2.0.0",
-        "xai-sdk-js": "^0.1.0",
       },
       "devDependencies": {
         "@bufbuild/buf": "^1.47.0",
@@ -253,8 +252,6 @@
     "ufo": ["ufo@1.6.4", "", {}, "sha512-JFNbkD1Svwe0KvGi8GOeLcP4kAWQ609twvCdcHxq1oSL8svv39ZuSvajcD8B+5D0eL4+s1Is2D/O6KN3qcTeRA=="],
 
     "undici-types": ["undici-types@8.3.0", "", {}, "sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ=="],
-
-    "xai-sdk-js": ["xai-sdk-js@0.1.0", "", { "dependencies": { "@bufbuild/protobuf": "^2.2.0", "@connectrpc/connect": "^2.0.0", "@connectrpc/connect-node": "^2.0.0" } }, "sha512-nl+vO0p7URXfP/HT6F1832uwKf/xLg8uE8Hd28SzGHzXV4tfFAxptdmC0DnFR6T7JAYc27LjW5NCX3SmcitzVA=="],
 
     "@bufbuild/protoplugin/typescript": ["typescript@5.4.5", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-vcI4UpRgg81oIRUFwR0WSIHKt11nJ7SAVlYNIu+QpqeyXP+gpQJy/Z4+F0aGxSE4MqwjyXvW/TzgkLAx2AGHwQ=="],
   }

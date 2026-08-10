@@ -1,6 +1,6 @@
 {
   "name": "xai-sdk-js",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "TypeScript/JavaScript SDK for the xAI API (gRPC)",
   "license": "Apache-2.0",
   "author": "imfaisii",
@@ -46,8 +46,7 @@
   "dependencies": {
     "@bufbuild/protobuf": "^2.2.0",
     "@connectrpc/connect": "^2.0.0",
-    "@connectrpc/connect-node": "^2.0.0",
-    "xai-sdk-js": "^0.1.0"
+    "@connectrpc/connect-node": "^2.0.0"
   },
   "devDependencies": {
     "@bufbuild/buf": "^1.47.0",

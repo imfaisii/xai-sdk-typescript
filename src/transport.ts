@@ -1,14 +1,27 @@
 import type { Interceptor, Transport } from "@connectrpc/connect";
 import { createGrpcTransport } from "@connectrpc/connect-node";
+import { resolveSecret } from "./env.js";
 import { VERSION } from "./version.js";
 
 const DEFAULT_RPC_TIMEOUT_MS = 27 * 60 * 1000;
 
 export interface ClientOptions {
-  /** API key. Defaults to process.env.XAI_API_KEY. */
+  /**
+   * API key. Resolution order:
+   * 1. this option
+   * 2. `process.env.XAI_API_KEY` (exported shell / host env)
+   * 3. dotenv files in `envDir` (cwd by default): `.env`, `.env.<mode>`,
+   *    `.env.local`, `.env.<mode>.local`, plus other `.env.*` variants
+   *    (e.g. `.env.production`, `.env.staging`). Mode is `XAI_ENV` or `NODE_ENV`.
+   */
   apiKey?: string;
-  /** Management API key for collections. Defaults to process.env.XAI_MANAGEMENT_KEY. */
+  /**
+   * Management API key for collections. Same resolution order as `apiKey`,
+   * using `XAI_MANAGEMENT_KEY`.
+   */
   managementApiKey?: string;
+  /** Directory to scan for `.env*` files. Default: `process.cwd()`. */
+  envDir?: string;
   /** API host. Default: api.x.ai */
   apiHost?: string;
   /** Management API host. Default: management-api.x.ai */
@@ -32,17 +45,18 @@ export interface ResolvedClientConfig {
 }
 
 export function resolveConfig(options: ClientOptions = {}): ResolvedClientConfig {
-  const apiKey = options.apiKey ?? process.env.XAI_API_KEY;
+  const envOpts = { envDir: options.envDir };
+  const apiKey = resolveSecret(options.apiKey, "XAI_API_KEY", envOpts);
   if (!apiKey) {
     throw new Error(
-      "Trying to read the xAI API key from the XAI_API_KEY environment variable but it doesn't exist.",
+      "xAI API key not found. Set apiKey, export XAI_API_KEY, or add it to a .env file (.env, .env.local, .env.production, …).",
     );
   }
   if (!apiKey.trim()) {
     throw new Error("Empty xAI API key provided.");
   }
 
-  const managementApiKey = options.managementApiKey ?? process.env.XAI_MANAGEMENT_KEY;
+  const managementApiKey = resolveSecret(options.managementApiKey, "XAI_MANAGEMENT_KEY", envOpts);
 
   return {
     apiKey,

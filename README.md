@@ -14,12 +14,31 @@ bun add xai-sdk-js
 pnpm add xai-sdk-js
 ```
 
-Set your API key:
+### API key resolution
+
+The client resolves secrets in this order (first hit wins):
+
+1. Constructor options: `new Client({ apiKey: "..." })`
+2. Process environment: `export XAI_API_KEY=...` (and `XAI_MANAGEMENT_KEY`)
+3. Dotenv files in the working directory (or `envDir`):
+
+| File | Typical use |
+| --- | --- |
+| `.env` | defaults |
+| `.env.<mode>` | `.env.production`, `.env.staging`, `.env.development` (`mode` = `XAI_ENV` or `NODE_ENV`) |
+| other `.env.*` | custom env names |
+| `.env.local` | local overrides (usually gitignored) |
+| `.env.<mode>.local` | mode-specific local overrides |
+
+Existing shell/`process.env` values are never overwritten by files. No `dotenv` dependency is required.
 
 ```bash
+# shell
 export XAI_API_KEY=xai-...
-# optional, for Collections management
-export XAI_MANAGEMENT_KEY=...
+export XAI_MANAGEMENT_KEY=...   # optional, Collections management
+
+# or a file
+echo 'XAI_API_KEY=xai-...' >> .env.local
 ```
 
 ## Quick start
@@ -145,8 +164,9 @@ const hits = await client.collections.search("hello", [col.collectionId], { limi
 
 ```ts
 new Client({
-  apiKey: "...",                 // default: process.env.XAI_API_KEY
-  managementApiKey: "...",       // default: process.env.XAI_MANAGEMENT_KEY
+  apiKey: "...",                 // else XAI_API_KEY env / .env*
+  managementApiKey: "...",       // else XAI_MANAGEMENT_KEY env / .env*
+  envDir: process.cwd(),         // directory scanned for .env* files
   apiHost: "api.x.ai",
   managementApiHost: "management-api.x.ai",
   timeoutMs: 27 * 60 * 1000,

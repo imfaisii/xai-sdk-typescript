@@ -2,6 +2,7 @@
 
 export { Client } from "./client.js";
 export type { ClientOptions } from "./transport.js";
+export { loadEnvFiles, parseEnvFile } from "./env.js";
 export { VERSION } from "./version.js";
 export { XAIError, Code, ConnectError } from "./errors.js";
 export { TICKS_PER_USD, costUsdFromTicks, costUsdFromUsage } from "./cost.js";

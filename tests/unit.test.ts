@@ -30,10 +30,14 @@ import { VERSION } from "../src/version.js";
 import { resolveConfig } from "../src/transport.js";
 import { BatchRequestSchema } from "../src/batch.js";
 import { XAIError } from "../src/errors.js";
+import { parseEnvFile, loadEnvFiles, _resetEnvLoaderForTests } from "../src/env.js";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 
 describe("version", () => {
   test("exposes package version", () => {
-    expect(VERSION).toBe("0.1.0");
+    expect(VERSION).toBe("0.1.1");
   });
 });
 
@@ -116,12 +120,34 @@ describe("service tier", () => {
   });
 });
 
+describe("env file parsing", () => {
+  test("parseEnvFile handles quotes, export, comments", () => {
+    const parsed = parseEnvFile(`
+# comment
+export XAI_API_KEY="key-from-dotenv"
+XAI_MANAGEMENT_KEY='mgmt'
+OTHER=plain # trailing
+`);
+    expect(parsed.XAI_API_KEY).toBe("key-from-dotenv");
+    expect(parsed.XAI_MANAGEMENT_KEY).toBe("mgmt");
+    expect(parsed.OTHER).toBe("plain");
+  });
+});
+
 describe("transport config", () => {
-  test("requires api key", () => {
+  test("requires api key when nothing is set", () => {
     const prev = process.env.XAI_API_KEY;
     delete process.env.XAI_API_KEY;
-    expect(() => resolveConfig({})).toThrow(/XAI_API_KEY/);
-    process.env.XAI_API_KEY = prev;
+    _resetEnvLoaderForTests();
+    const emptyDir = mkdtempSync(join(tmpdir(), "xai-sdk-empty-"));
+    try {
+      expect(() => resolveConfig({ envDir: emptyDir })).toThrow(/API key not found/);
+    } finally {
+      rmSync(emptyDir, { recursive: true, force: true });
+      if (prev === undefined) delete process.env.XAI_API_KEY;
+      else process.env.XAI_API_KEY = prev;
+      _resetEnvLoaderForTests();
+    }
   });
 
   test("accepts explicit key", () => {
@@ -129,6 +155,65 @@ describe("transport config", () => {
     expect(cfg.apiKey).toBe("test-key");
     expect(cfg.apiHost).toBe("localhost:50051");
     expect(cfg.metadata["xai-sdk-version"]).toMatch(/^js\//);
+  });
+
+  test("loads XAI_API_KEY from .env.local when process env is unset", () => {
+    const prev = process.env.XAI_API_KEY;
+    delete process.env.XAI_API_KEY;
+    _resetEnvLoaderForTests();
+    const dir = mkdtempSync(join(tmpdir(), "xai-sdk-env-"));
+    try {
+      writeFileSync(join(dir, ".env"), "XAI_API_KEY=from-env\n");
+      writeFileSync(join(dir, ".env.local"), "XAI_API_KEY=from-local\n");
+      const cfg = resolveConfig({ envDir: dir });
+      expect(cfg.apiKey).toBe("from-local");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+      if (prev === undefined) delete process.env.XAI_API_KEY;
+      else process.env.XAI_API_KEY = prev;
+      // clear value injected by loadEnvFiles into process.env
+      if (prev === undefined) delete process.env.XAI_API_KEY;
+      _resetEnvLoaderForTests();
+    }
+  });
+
+  test("exported process.env wins over dotenv files", () => {
+    const prev = process.env.XAI_API_KEY;
+    process.env.XAI_API_KEY = "from-shell";
+    _resetEnvLoaderForTests();
+    const dir = mkdtempSync(join(tmpdir(), "xai-sdk-env2-"));
+    try {
+      writeFileSync(join(dir, ".env"), "XAI_API_KEY=from-file\n");
+      const cfg = resolveConfig({ envDir: dir });
+      expect(cfg.apiKey).toBe("from-shell");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+      if (prev === undefined) delete process.env.XAI_API_KEY;
+      else process.env.XAI_API_KEY = prev;
+      _resetEnvLoaderForTests();
+    }
+  });
+
+  test("loads .env.production when NODE_ENV=production", () => {
+    const prevKey = process.env.XAI_API_KEY;
+    const prevNode = process.env.NODE_ENV;
+    delete process.env.XAI_API_KEY;
+    process.env.NODE_ENV = "production";
+    _resetEnvLoaderForTests();
+    const dir = mkdtempSync(join(tmpdir(), "xai-sdk-env3-"));
+    try {
+      writeFileSync(join(dir, ".env"), "XAI_API_KEY=base\n");
+      writeFileSync(join(dir, ".env.production"), "XAI_API_KEY=prod\n");
+      const cfg = resolveConfig({ envDir: dir });
+      expect(cfg.apiKey).toBe("prod");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+      if (prevKey === undefined) delete process.env.XAI_API_KEY;
+      else process.env.XAI_API_KEY = prevKey;
+      if (prevNode === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = prevNode;
+      _resetEnvLoaderForTests();
+    }
   });
 });
 
