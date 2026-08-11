@@ -100,9 +100,19 @@ jobs:
 
       - name: Publish to npm
         if: steps.meta.outputs.already_published != 'true'
-        run: npm publish --access public --ignore-scripts
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "::error::NPM_TOKEN secret is missing or empty."
+            echo "Create an npm access token (publish) at https://www.npmjs.com/settings/~/tokens"
+            echo "Then: GitHub → Settings → Secrets and variables → Actions → New repository secret"
+            echo "Name: NPM_TOKEN  Value: <token>"
+            echo "Re-run this workflow after saving the secret."
+            exit 1
+          fi
+          npm publish --access public --ignore-scripts
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
