@@ -496,6 +496,12 @@ export class Response {
 
 export interface CreateChatOptions {
   model: string;
+  /**
+   * Stable conversation id for prompt-cache sticky routing.
+   * Sent as the `x-grok-conv-id` request header on every chat RPC for this Chat.
+   * Use a UUID / session id and keep it constant for the whole multi-turn thread.
+   * Does not auto-store messages; pair with `storeMessages` + `previousResponseId` for chaining.
+   */
   conversationId?: string;
   messages?: Message[];
   user?: string;
@@ -540,6 +546,19 @@ export class Chat {
     this.proto = create(GetCompletionsRequestSchema, settings as never);
     this.conversationId = conversationId;
     this.batchRequestId = batchRequestId;
+  }
+
+  /**
+   * Sticky prompt-cache routing header (xAI).
+   * Connect merges these with client-level metadata; this value wins for `x-grok-conv-id`.
+   */
+  private callOptions(): { headers: Record<string, string> } | undefined {
+    if (!this.conversationId) return undefined;
+    return {
+      headers: {
+        "x-grok-conv-id": this.conversationId,
+      },
+    };
   }
 
   get messages(): Message[] {
@@ -619,13 +638,13 @@ export class Chat {
 
   async sample(): Promise<Response> {
     let index: number | null = this.usesServerSideTools() ? null : 0;
-    const responsePb = await this.stub.getCompletion(this.makeRequest(1));
+    const responsePb = await this.stub.getCompletion(this.makeRequest(1), this.callOptions());
     index = this.autoDetectMultiOutputMode(index, responsePb.outputs);
     return new Response(responsePb, index);
   }
 
   async sampleBatch(n: number): Promise<Response[]> {
-    const responsePb = await this.stub.getCompletion(this.makeRequest(n));
+    const responsePb = await this.stub.getCompletion(this.makeRequest(n), this.callOptions());
     return Array.from({ length: n }, (_, i) => new Response(responsePb, i));
   }
 
@@ -660,7 +679,7 @@ export class Chat {
       index,
     );
 
-    const stream = this.stub.getCompletionChunk(this.makeRequest(1));
+    const stream = this.stub.getCompletionChunk(this.makeRequest(1), this.callOptions());
     for await (const chunk of stream) {
       index = this.autoDetectMultiOutputMode(index, chunk.outputs);
       response._index = index;
@@ -694,7 +713,7 @@ export class Chat {
       serviceTier: 0 as ServiceTierEnum,
     } as GetChatCompletionResponse;
     const responses = Array.from({ length: n }, (_, i) => new Response(base, i));
-    const stream = this.stub.getCompletionChunk(this.makeRequest(n));
+    const stream = this.stub.getCompletionChunk(this.makeRequest(n), this.callOptions());
     for await (const chunk of stream) {
       responses[0]!.processChunk(chunk);
       yield [responses, Array.from({ length: n }, (_, i) => new Chunk(chunk, i))];
@@ -730,7 +749,7 @@ export class Chat {
       schema: schemaJson,
     });
 
-    const responsePb = await this.stub.getCompletion(this.makeRequest(1));
+    const responsePb = await this.stub.getCompletion(this.makeRequest(1), this.callOptions());
     let index: number | null = this.usesServerSideTools() ? null : 0;
     index = this.autoDetectMultiOutputMode(index, responsePb.outputs);
     const r = new Response(responsePb, index);
@@ -747,10 +766,12 @@ export class Chat {
       timeoutMs: timeoutMs ?? 10 * 60 * 1000,
       intervalMs: intervalMs ?? 100,
     });
-    const started = await this.stub.startDeferredCompletion(this.makeRequest(n));
+    const opts = this.callOptions();
+    const started = await this.stub.startDeferredCompletion(this.makeRequest(n), opts);
     while (true) {
       const r = await this.stub.getDeferredCompletion(
         create(GetDeferredRequestSchema, { requestId: started.requestId }),
+        opts,
       );
       switch (r.status) {
         case DeferredStatus.DONE:
@@ -783,6 +804,7 @@ export class Chat {
         model: this.proto.model,
         input: this.proto.messages,
       }),
+      this.callOptions(),
     );
     const result = new CompactContextResponse(responsePb);
     this.append(result);

@@ -37,7 +37,7 @@ import { tmpdir } from "node:os";
 
 describe("version", () => {
   test("exposes package version", () => {
-    expect(VERSION).toBe("0.1.1");
+    expect(VERSION).toBe("0.1.2");
   });
 });
 

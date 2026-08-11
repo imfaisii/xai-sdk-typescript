@@ -59,6 +59,57 @@ console.log(response.content);
 console.log("cost USD:", response.costUsd);
 ```
 
+### Multi-turn + prompt cache (lower cost)
+
+xAI sticky prompt-cache routing needs a stable conversation id on every chat RPC as header `x-grok-conv-id`. Pass it as `conversationId` on `chat.create` — the SDK sends it automatically on sample/stream/defer/parse/compact.
+
+```ts
+import { Client, system, user } from "xai-sdk-js";
+
+const client = new Client();
+const conversationId = "thread_abc123"; // stable per app conversation
+let previousResponseId: string | undefined;
+
+// Turn 1
+{
+  const chat = client.chat.create({
+    model: "grok-4",
+    conversationId,
+    storeMessages: true,
+    messages: [system("You are helpful."), user("What is prompt caching?")],
+  });
+  const res = await chat.sample();
+  previousResponseId = res.id;
+  console.log(res.content);
+  console.log("cached tokens:", res.usage?.cachedPromptTextTokens);
+}
+
+// Turn 2 — only the new user message; server holds prior turns via previousResponseId
+{
+  const chat = client.chat.create({
+    model: "grok-4",
+    conversationId,
+    storeMessages: true,
+    previousResponseId,
+    messages: [user("Show a short example.")],
+  });
+  const res = await chat.sample();
+  previousResponseId = res.id;
+  console.log("cached tokens:", res.usage?.cachedPromptTextTokens);
+}
+```
+
+Best practices:
+
+1. Always pass a stable `conversationId` for multi-turn (do not mint a new one each request).
+2. Set `storeMessages: true` when chaining with `previousResponseId`.
+3. Follow-ups: send only the **new** user message when using `previousResponseId` (don’t resend full history).
+4. If you resend full history instead of chaining, don’t edit/reorder earlier turns.
+5. Watch `usage.cachedPromptTextTokens` — stuck at `0` usually means the id/header/routing is wrong.
+6. One-shot helpers (titles, classifiers): omit `conversationId` or use a unique id; keep `storeMessages: false` (the default).
+
+You can also set client-wide metadata `x-grok-conv-id`, but per-chat `conversationId` is correct for concurrent threads (it wins on that header).
+
 ### Streaming
 
 ```ts
