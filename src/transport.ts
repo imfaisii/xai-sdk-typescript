@@ -1,7 +1,7 @@
 import type { Interceptor, Transport } from "@connectrpc/connect";
 import { createGrpcTransport } from "@connectrpc/connect-node";
 import { resolveSecret } from "./env.js";
-import { VERSION } from "./version.js";
+import { USER_AGENT, VERSION } from "./version.js";
 
 const DEFAULT_RPC_TIMEOUT_MS = 27 * 60 * 1000;
 
@@ -64,6 +64,7 @@ export function resolveConfig(options: ClientOptions = {}): ResolvedClientConfig
     apiHost: options.apiHost ?? "api.x.ai",
     managementApiHost: options.managementApiHost ?? "management-api.x.ai",
     metadata: {
+      "user-agent": USER_AGENT,
       "xai-sdk-version": `js/${VERSION}`,
       "xai-sdk-language": `js/${process.version}`,
       ...(options.metadata ?? {}),

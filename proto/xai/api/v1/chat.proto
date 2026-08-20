@@ -608,6 +608,7 @@ enum ReasoningEffort {
   EFFORT_MEDIUM = 2;
   EFFORT_HIGH = 3;
   EFFORT_NONE = 4;
+  EFFORT_XHIGH = 5;
 }
 
 // Number of agents to use for multi-agent models.
@@ -671,7 +672,17 @@ message Tool {
     MCP mcp = 7;
     // Built in attachment search.
     AttachmentSearch attachment_search = 8;
+    // Built in image generation and editing.
+    ImageGeneration image_generation = 10;
   }
+}
+
+// Built in image generation tool, enabling image generation and editing in
+// agentic requests.
+message ImageGeneration {
+  // Which image capabilities are exposed to the model: "auto", "generate", or
+  // "edit". Defaults to "auto" when omitted.
+  optional string action = 1;
 }
 
 message MCP {
@@ -838,6 +849,9 @@ enum ToolCallType {
   // Indicates the tool is a server-side attachment_search tool, and client side won't need to execute.
   // Maps to `attachment_search_call` type in OAI Responses API.
   TOOL_CALL_TYPE_ATTACHMENT_SEARCH_TOOL = 7;
+
+  // Indicates the tool is a server-side image_generation tool, and client side won't need to execute.
+  TOOL_CALL_TYPE_IMAGE_GENERATION_TOOL = 10;
 }
 
 enum ToolCallStatus {

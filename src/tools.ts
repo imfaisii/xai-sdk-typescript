@@ -3,6 +3,7 @@ import {
   CodeExecutionSchema,
   CollectionsSearchSchema,
   FunctionSchema,
+  ImageGenerationSchema,
   MCPSchema,
   ToolCallType,
   ToolSchema,
@@ -89,6 +90,17 @@ export function codeExecution(): Tool {
     tool: {
       case: "codeExecution",
       value: create(CodeExecutionSchema, {}),
+    },
+  });
+}
+
+export function imageGeneration(options?: { action?: "auto" | "generate" | "edit" }): Tool {
+  return create(ToolSchema, {
+    tool: {
+      case: "imageGeneration",
+      value: create(ImageGenerationSchema, {
+        action: options?.action,
+      }),
     },
   });
 }

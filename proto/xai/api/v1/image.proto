@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package xai_api;
 
+import "google/protobuf/timestamp.proto";
 import "xai/api/v1/usage.proto";
 
 // An API service for interaction with image generation models.
@@ -35,6 +36,10 @@ message GenerateImageRequest {
   // in. See ImageFormat enum for options.
   ImageFormat format = 11;
 
+  // Optional quality for image generation.
+  // Only supported by grok-imagine-image-2.0. Defaults to medium.
+  optional ImageQuality quality = 12;
+
   // Optional aspect ratio for image generation/editing.
   // Only supported by grok-imagine models.
   // Defaults to 1:1 if not specified. Auto is only supported for image generation
@@ -53,6 +58,9 @@ message GenerateImageRequest {
   // Each image is either an image URL or a base64-encoded version of the image.
   // This field cannot be set together with the `image` field.
   repeated ImageUrlContent images = 17;
+
+  // Optional options for persisting the generated image(s) to the Files API.
+  optional StorageOptions storage_options = 19;
 }
 
 // The response from the image generation models containing the generated image(s).
@@ -86,6 +94,53 @@ message GeneratedImage {
   // The field will be true if the image respect moderation rules. Otherwise
   // the field will be false and the image field is replaced by a placeholder.
   bool respect_moderation = 4;
+
+  // Details of the stored file when `storage_options` was set on the request.
+  optional FileOutput file_output = 8;
+
+  // Populated instead of `file_output` when persisting the image failed.
+  optional string storage_error = 9;
+}
+
+// Options for persisting a generated asset to the Files API.
+message StorageOptions {
+  // Name to store the generated file under. Required.
+  string filename = 1;
+
+  // Optional time-to-live in seconds, after which the file is deleted.
+  optional int64 expires_after = 2;
+
+  // Optional request to also create a publicly accessible URL for the file.
+  optional PublicUrlOptions public_url = 3;
+}
+
+// Options controlling creation of a public URL for a stored file.
+message PublicUrlOptions {
+  // Optional independent expiry for the public URL, in seconds.
+  optional int64 expires_after = 1;
+}
+
+// Details of a generated asset that was persisted to the Files API.
+message FileOutput {
+  reserved 3;
+
+  // The id of the stored file.
+  string file_id = 1;
+
+  // The name the file was stored under.
+  string filename = 2;
+
+  // The public URL, if one was requested and created successfully.
+  optional string public_url = 4;
+
+  // When the public URL expires.
+  optional google.protobuf.Timestamp public_url_expires_at = 5;
+
+  // When the stored file expires.
+  optional google.protobuf.Timestamp expires_at = 6;
+
+  // Populated instead of `public_url` when creating the public URL failed.
+  optional string public_url_error = 7;
 }
 
 // Contains data relating to an image that is provided to the model.
@@ -97,7 +152,13 @@ message ImageUrlContent {
   // "XaiImageApiFetch/1.0" user agent, and will timeout after 5 seconds.
   // The image size is limited to 10 MiB. If the image download fails, the API
   // request will fail as well.
-  string image_url = 1;
+  oneof source {
+    // An image URL or a base64-encoded version of the image.
+    string image_url = 1;
+
+    // The id of a file previously uploaded to the Files API.
+    string file_id = 3;
+  }
 
   // The level of pre-processing resolution that will be applied to the image.
   ImageDetail detail = 2;

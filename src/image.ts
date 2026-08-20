@@ -9,14 +9,28 @@ import {
   Image,
   ImageAspectRatio,
   ImageFormat,
+  ImageQuality,
   ImageResolution,
   ImageUrlContentSchema,
   type GenerateImageRequest,
   type ImageResponse as ImageResponseProto,
   type GeneratedImage,
 } from "./gen/xai/api/v1/image_pb.js";
+import {
+  fileOutputFromPb,
+  storageOptionsToPb,
+  type FileOutputInfo,
+  type StorageOptionsInput,
+} from "./storage.js";
+import { costUsdFromUsage } from "./cost.js";
 
 type ImageRpc = ConnectClient<typeof Image>;
+
+/** Models supported for image generation. Other strings are still accepted. */
+export type ImageGenerationModel =
+  | "grok-imagine-image"
+  | "grok-imagine-image-2.0"
+  | "grok-imagine-image-quality";
 
 export type ImageFormatName = "url" | "base64";
 export type ImageAspectRatioName =
@@ -71,6 +85,15 @@ function resolutionToProto(res?: ImageResolutionName): ImageResolution | undefin
   throw new Error(`Invalid resolution: ${res}`);
 }
 
+export type ImageQualityName = "low" | "medium";
+
+function qualityToProto(quality?: ImageQualityName): ImageQuality | undefined {
+  if (!quality) return undefined;
+  if (quality === "low") return ImageQuality.IMG_QUALITY_LOW;
+  if (quality === "medium") return ImageQuality.IMG_QUALITY_MEDIUM;
+  throw new Error(`Invalid quality: ${quality}`);
+}
+
 export interface ImageSampleOptions {
   imageUrl?: string;
   imageFileId?: string;
@@ -80,10 +103,16 @@ export interface ImageSampleOptions {
   imageFormat?: ImageFormatName;
   aspectRatio?: ImageAspectRatioName;
   resolution?: ImageResolutionName;
+  quality?: ImageQualityName;
+  storageOptions?: StorageOptionsInput;
   n?: number;
 }
 
-function makeGenerateRequest(prompt: string, model: string, options: ImageSampleOptions = {}): GenerateImageRequest {
+function makeGenerateRequest(
+  prompt: string,
+  model: ImageGenerationModel | (string & {}),
+  options: ImageSampleOptions = {},
+): GenerateImageRequest {
   const singleCount = [options.imageUrl, options.imageFileId].filter((x) => x !== undefined).length;
   const multi = (options.imageUrls?.length ?? 0) + (options.imageFileIds?.length ?? 0);
   if (singleCount > 1) throw new Error("Only one of imageUrl or imageFileId may be set.");
@@ -91,17 +120,18 @@ function makeGenerateRequest(prompt: string, model: string, options: ImageSample
 
   let image = undefined as ReturnType<typeof create<typeof ImageUrlContentSchema>> | undefined;
   if (options.imageUrl) {
-    image = create(ImageUrlContentSchema, { imageUrl: options.imageUrl });
+    image = create(ImageUrlContentSchema, { source: { case: "imageUrl", value: options.imageUrl } });
   } else if (options.imageFileId) {
-    image = create(ImageUrlContentSchema, { imageUrl: `file://${options.imageFileId}` });
+    image = create(ImageUrlContentSchema, { source: { case: "fileId", value: options.imageFileId } });
   }
 
+  // When both `imageFileIds` and `imageUrls` are given, file IDs are appended first, then URLs.
   const images: ReturnType<typeof create<typeof ImageUrlContentSchema>>[] = [];
   for (const id of options.imageFileIds ?? []) {
-    images.push(create(ImageUrlContentSchema, { imageUrl: `file://${id}` }));
+    images.push(create(ImageUrlContentSchema, { source: { case: "fileId", value: id } }));
   }
   for (const url of options.imageUrls ?? []) {
-    images.push(create(ImageUrlContentSchema, { imageUrl: url }));
+    images.push(create(ImageUrlContentSchema, { source: { case: "imageUrl", value: url } }));
   }
 
   return create(GenerateImageRequestSchema, {
@@ -110,10 +140,12 @@ function makeGenerateRequest(prompt: string, model: string, options: ImageSample
     n: options.n,
     user: options.user ?? "",
     format: imageFormatToProto(options.imageFormat),
+    quality: qualityToProto(options.quality),
     aspectRatio: aspectRatioToProto(options.aspectRatio),
     resolution: resolutionToProto(options.resolution),
     image,
     images,
+    storageOptions: storageOptionsToPb(options.storageOptions),
   });
 }
 
@@ -145,15 +177,39 @@ export class ImageResponse {
     return this.proto.usage;
   }
 
+  get costUsd(): number | undefined {
+    return costUsdFromUsage(this.proto.usage);
+  }
+
   get respectModeration(): boolean {
     return this.generated?.respectModeration ?? false;
+  }
+
+  get fileOutput(): FileOutputInfo | undefined {
+    return fileOutputFromPb(this.generated?.fileOutput);
+  }
+
+  get storageError(): string | undefined {
+    return this.generated?.storageError;
+  }
+
+  get publicUrl(): string | undefined {
+    return this.fileOutput?.publicUrl;
+  }
+
+  get publicUrlError(): string | undefined {
+    return this.fileOutput?.publicUrlError;
   }
 }
 
 export class ImageClient {
   constructor(private stub: ImageRpc) {}
 
-  prepare(prompt: string, model: string, options?: ImageSampleOptions & { batchRequestId?: string }): BatchRequest {
+  prepare(
+    prompt: string,
+    model: ImageGenerationModel | (string & {}),
+    options?: ImageSampleOptions & { batchRequestId?: string },
+  ): BatchRequest {
     const request = makeGenerateRequest(prompt, model, options);
     return create(BatchRequestSchema, {
       batchRequestId: options?.batchRequestId ?? "",
@@ -161,13 +217,22 @@ export class ImageClient {
     });
   }
 
-  async sample(prompt: string, model: string, options?: ImageSampleOptions): Promise<ImageResponse> {
+  async sample(
+    prompt: string,
+    model: ImageGenerationModel | (string & {}),
+    options?: ImageSampleOptions,
+  ): Promise<ImageResponse> {
     const request = makeGenerateRequest(prompt, model, options);
     const responsePb = await this.stub.generateImage(request);
     return new ImageResponse(responsePb, 0);
   }
 
-  async sampleBatch(prompt: string, model: string, n: number, options?: ImageSampleOptions): Promise<ImageResponse[]> {
+  async sampleBatch(
+    prompt: string,
+    model: ImageGenerationModel | (string & {}),
+    n: number,
+    options?: ImageSampleOptions,
+  ): Promise<ImageResponse[]> {
     const request = makeGenerateRequest(prompt, model, { ...options, n });
     const responsePb = await this.stub.generateImage(request);
     return responsePb.images.map((_, i) => new ImageResponse(responsePb, i));

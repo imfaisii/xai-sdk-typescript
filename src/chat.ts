@@ -17,6 +17,8 @@ import {
   MessageSchema,
   ReasoningEffort,
   ResponseFormatSchema,
+  ToolCallStatus,
+  ToolCallType,
   ToolChoiceSchema,
   ToolMode,
   ToolSchema,
@@ -45,13 +47,52 @@ import {
   ImageUrlContentSchema,
 } from "./gen/xai/api/v1/image_pb.js";
 import { FinishReason } from "./gen/xai/api/v1/sample_pb.js";
-import type { SamplingUsage, ServiceTier as ServiceTierEnum } from "./gen/xai/api/v1/usage_pb.js";
+import { ServerSideTool, type SamplingUsage, type ServiceTier as ServiceTierEnum } from "./gen/xai/api/v1/usage_pb.js";
 import { costUsdFromUsage } from "./cost.js";
 import { SearchParameters } from "./search.js";
 import { serviceTierFromProto, serviceTierToProto, type ServiceTierName } from "./service-tier.js";
 import { PollTimer } from "./util.js";
 
-export type ReasoningEffortName = "none" | "low" | "medium" | "high";
+export type ChatModel =
+  | "grok-4"
+  | "grok-4-0709"
+  | "grok-4-latest"
+  | "grok-4-1-fast"
+  | "grok-4-1-fast-reasoning"
+  | "grok-4-1-fast-reasoning-latest"
+  | "grok-4-1-fast-non-reasoning"
+  | "grok-4-1-fast-non-reasoning-latest"
+  | "grok-4-fast"
+  | "grok-4-fast-reasoning"
+  | "grok-4-fast-reasoning-latest"
+  | "grok-4-fast-non-reasoning"
+  | "grok-4-fast-non-reasoning-latest"
+  | "grok-4.20-0309-reasoning"
+  | "grok-4.20"
+  | "grok-4.20-0309"
+  | "grok-4.20-reasoning-latest"
+  | "grok-4.20-0309-non-reasoning"
+  | "grok-4.20-non-reasoning"
+  | "grok-4.20-non-reasoning-latest"
+  | "grok-4.20-multi-agent"
+  | "grok-4.20-multi-agent-0309"
+  | "grok-4.20-multi-agent-latest"
+  | "grok-4.3"
+  | "grok-4.3-latest"
+  | "grok-4.5"
+  | "grok-4.5-latest"
+  | "grok-4.6"
+  | "grok-code-fast-1"
+  | "grok-build-0.1"
+  | "grok-3"
+  | "grok-3-latest"
+  | "grok-3-mini"
+  | "grok-3-fast"
+  | "grok-3-fast-latest"
+  | "grok-3-mini-fast"
+  | "grok-3-mini-fast-latest";
+
+export type ReasoningEffortName = "none" | "low" | "medium" | "high" | "xhigh";
 export type ToolModeName = "auto" | "none" | "required";
 export type ResponseFormatName = "text" | "json_object" | "json_schema";
 export type ImageDetailName = "auto" | "low" | "high";
@@ -84,7 +125,7 @@ export function image(imageUrl: string, options?: { detail?: ImageDetailName }):
   return create(ContentSchema, {
     content: {
       case: "imageUrl",
-      value: create(ImageUrlContentSchema, { imageUrl, detail }),
+      value: create(ImageUrlContentSchema, { source: { case: "imageUrl", value: imageUrl }, detail }),
     },
   });
 }
@@ -187,6 +228,8 @@ function reasoningEffortToProto(effort: ReasoningEffortName): ReasoningEffort {
       return ReasoningEffort.EFFORT_MEDIUM;
     case "high":
       return ReasoningEffort.EFFORT_HIGH;
+    case "xhigh":
+      return ReasoningEffort.EFFORT_XHIGH;
     default:
       throw new Error(`Invalid reasoning effort: ${effort}`);
   }
@@ -243,6 +286,15 @@ function agentCountToProto(n: 4 | 16 | AgentCount): AgentCount {
   return n as AgentCount;
 }
 
+function serverSideToolUsageFromProto(toolsUsed: ServerSideTool[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const t of toolsUsed) {
+    const name = ServerSideTool[t] ?? "SERVER_SIDE_TOOL_INVALID";
+    counts[name] = (counts[name] ?? 0) + 1;
+  }
+  return counts;
+}
+
 export class CompactContextResponse {
   constructor(readonly proto: CompactContextResponseProto) {}
   get id(): string {
@@ -287,6 +339,82 @@ export class Chunk {
   }
   get inlineCitations(): InlineCitation[] {
     return this.delta?.citations ?? [];
+  }
+  get serverSideToolUsage(): Record<string, number> {
+    return serverSideToolUsageFromProto(this.proto.usage?.serverSideToolsUsed ?? []);
+  }
+}
+
+/**
+ * A single image produced by the server-side `imageGeneration` tool.
+ *
+ * Exposes the generated image as decoded `image` bytes (with `mimeType` and
+ * `dataUrl` describing the payload), the `imageUuid` used to reference the
+ * image in follow-up edit requests, and the completed `toolCall` that
+ * produced it.
+ */
+export class ImageGenerationOutput {
+  private readonly _toolCall: ToolCall;
+  private readonly _dataUrl: string;
+  private readonly _imageUuid: string;
+  private readonly _image: Uint8Array;
+
+  constructor(output: CompletionOutput, toolCall: ToolCall) {
+    this._toolCall = toolCall;
+    const content = output.message?.content ?? "";
+    const errorMessage = `Output content is not a well-formed image generation result envelope: ${content.slice(0, 64)}`;
+    let envelope: unknown;
+    try {
+      envelope = JSON.parse(content);
+    } catch {
+      throw new Error(errorMessage);
+    }
+    if (
+      typeof envelope !== "object" ||
+      envelope === null ||
+      (envelope as Record<string, unknown>).__type !== "image_generation_result"
+    ) {
+      throw new Error(errorMessage);
+    }
+    const dataUrl = (envelope as Record<string, unknown>).result;
+    if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/") || !dataUrl.includes("base64,")) {
+      throw new Error(errorMessage);
+    }
+    this._dataUrl = dataUrl;
+    const imageUuid = (envelope as Record<string, unknown>).image_uuid;
+    this._imageUuid = typeof imageUuid === "string" ? imageUuid : "";
+    const encoded = dataUrl.slice(dataUrl.indexOf("base64,") + "base64,".length);
+    this._image = Buffer.from(encoded, "base64");
+  }
+
+  /**
+   * The completed image generation tool call that produced this image.
+   *
+   * `toolCall.function.name` distinguishes text-to-image generations
+   * (`imagine_text_to_image`) from image edits (`imagine_image_to_image`).
+   */
+  get toolCall(): ToolCall {
+    return this._toolCall;
+  }
+  /** The generated image as a `data:<mime type>;base64,<payload>` URL. */
+  get dataUrl(): string {
+    return this._dataUrl;
+  }
+  /** The MIME type of the generated image (e.g. `image/jpeg`). */
+  get mimeType(): string {
+    return this._dataUrl.replace(/^data:/, "").split(";")[0] ?? "";
+  }
+  /**
+   * The short reference ID the model uses to address this image in follow-up tool calls.
+   *
+   * Empty if the server did not report one.
+   */
+  get imageUuid(): string {
+    return this._imageUuid;
+  }
+  /** The generated image as raw bytes. */
+  get image(): Uint8Array {
+    return this._image;
   }
 }
 
@@ -481,6 +609,27 @@ export class Response {
   get toolOutputs(): CompletionOutput[] {
     return this.proto.outputs.filter((o) => o.message?.role === MessageRole.ROLE_TOOL);
   }
+  /**
+   * Returns the images generated by the server-side `imageGeneration` tool.
+   *
+   * One entry per completed image generation/edit call, in response order.
+   * Failed calls carry an error payload instead of an image and are omitted.
+   */
+  get imageOutputs(): ImageGenerationOutput[] {
+    const imageOutputs: ImageGenerationOutput[] = [];
+    for (const output of this.toolOutputs) {
+      const completedCalls = (output.message?.toolCalls ?? []).filter(
+        (tc) => tc.type === ToolCallType.IMAGE_GENERATION_TOOL && tc.status === ToolCallStatus.COMPLETED,
+      );
+      if (completedCalls.length) {
+        imageOutputs.push(new ImageGenerationOutput(output, completedCalls[0]!));
+      }
+    }
+    return imageOutputs;
+  }
+  get serverSideToolUsage(): Record<string, number> {
+    return serverSideToolUsageFromProto(this.proto.usage?.serverSideToolsUsed ?? []);
+  }
   get requestSettings(): RequestSettings | undefined {
     return this.proto.settings;
   }
@@ -495,7 +644,7 @@ export class Response {
 
 
 export interface CreateChatOptions {
-  model: string;
+  model: ChatModel | (string & {});
   /**
    * Stable conversation id for prompt-cache sticky routing.
    * Sent as the `x-grok-conv-id` request header on every chat RPC for this Chat.
@@ -528,6 +677,22 @@ export interface CreateChatOptions {
   agentCount?: 4 | 16 | AgentCount;
   batchRequestId?: string;
   serviceTier?: ServiceTierName | ServiceTierEnum;
+}
+
+/**
+ * Recovers the `toolCallId` for replaying a completion output as an input message.
+ *
+ * `CompletionMessage` does not carry a `toolCallId` field, but server-side tool
+ * outputs (ROLE_TOOL) echo the originating call in `toolCalls`. The server pairs
+ * replayed tool turns with their calls via `Message.toolCallId` (e.g. to re-hydrate
+ * binary tool results such as generated images), so it must be set when appending a
+ * response back onto the conversation.
+ */
+function replayToolCallId(outputMessage: CompletionOutput["message"] | undefined): string | undefined {
+  if (outputMessage?.role === MessageRole.ROLE_TOOL && outputMessage.toolCalls.length) {
+    return outputMessage.toolCalls[0]!.id;
+  }
+  return undefined;
 }
 
 type ChatRpc = ConnectClient<typeof ChatService>;
@@ -583,18 +748,20 @@ export class Chat {
               reasoningContent: output.message?.reasoningContent,
               encryptedContent: output.message?.encryptedContent ?? "",
               toolCalls: output.message?.toolCalls ?? [],
+              toolCallId: replayToolCallId(output.message),
             }),
           );
         }
       } else {
+        const outputMessage = message.proto.outputs.find((o) => o.index === message._index)?.message;
         this.proto.messages.push(
           create(MessageSchema, {
-            role: message.proto.outputs.find((o) => o.index === message._index)?.message?.role ??
-              MessageRole.ROLE_ASSISTANT,
+            role: outputMessage?.role ?? MessageRole.ROLE_ASSISTANT,
             content: [text(message.content)],
             reasoningContent: message.reasoningContent || undefined,
             encryptedContent: message.encryptedContent,
             toolCalls: message.toolCalls,
+            toolCallId: replayToolCallId(outputMessage),
           }),
         );
       }

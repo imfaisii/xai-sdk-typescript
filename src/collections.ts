@@ -153,6 +153,19 @@ function chunkConfigurationToPb(input?: ChunkConfigurationInput | ChunkConfigura
     return input as ChunkConfigurationProto;
   }
   const cfg = input as ChunkConfigurationInput;
+  const strategies = (["charsConfiguration", "tokensConfiguration", "bytesConfiguration"] as const).filter(
+    (key) => cfg[key],
+  );
+  if (strategies.length === 0) {
+    throw new Error(
+      "Must specify exactly one chunking strategy ('charsConfiguration', 'tokensConfiguration', or 'bytesConfiguration').",
+    );
+  }
+  if (strategies.length > 1) {
+    throw new Error(
+      `Cannot specify multiple chunking strategies (${strategies.map((s) => `'${s}'`).join(", ")}). Please specify only one chunking strategy.`,
+    );
+  }
   return create(ChunkConfigurationSchema, {
     stripWhitespace: cfg.stripWhitespace ?? false,
     injectNameIntoChunks: cfg.injectNameIntoChunks ?? false,

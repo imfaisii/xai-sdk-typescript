@@ -4,6 +4,7 @@ import { BatchRequestSchema, type BatchRequest } from "./gen/xai/api/v1/batch_pb
 import { DeferredStatus } from "./gen/xai/api/v1/deferred_pb.js";
 import { ImageUrlContentSchema } from "./gen/xai/api/v1/image_pb.js";
 import {
+  AudioUrlContentSchema,
   ExtendVideoRequestSchema,
   GenerateVideoRequestSchema,
   GetDeferredVideoRequestSchema,
@@ -17,12 +18,26 @@ import {
   type VideoResponse as VideoResponseProto,
 } from "./gen/xai/api/v1/video_pb.js";
 import type { StartDeferredResponse as DeferredStart } from "./gen/xai/api/v1/deferred_pb.js";
+import {
+  fileOutputFromPb,
+  storageOptionsToPb,
+  type FileOutputInfo,
+  type StorageOptionsInput,
+} from "./storage.js";
+import { costUsdFromUsage } from "./cost.js";
+import { VideoGenerationError } from "./errors.js";
 import { PollTimer } from "./util.js";
 
 type VideoRpc = ConnectClient<typeof Video>;
 
+/** Models supported for video generation. Other strings are still accepted. */
+export type VideoGenerationModel = "grok-imagine-video" | "grok-imagine-video-1.5";
+
+export const DEFAULT_VIDEO_POLL_INTERVAL = 1000;
+export const DEFAULT_VIDEO_TIMEOUT = 10 * 60 * 1000;
+
 export type VideoAspectRatioName = "16:9" | "9:16" | "1:1" | "4:3" | "3:4" | "3:2" | "2:3";
-export type VideoResolutionName = "480p" | "720p";
+export type VideoResolutionName = "480p" | "720p" | "1080p";
 
 function aspectRatioToProto(ratio?: VideoAspectRatioName): VideoAspectRatio | undefined {
   if (!ratio) return undefined;
@@ -44,6 +59,7 @@ function resolutionToProto(res?: VideoResolutionName): VideoResolution | undefin
   if (!res) return undefined;
   if (res === "480p") return VideoResolution.VIDEO_RESOLUTION_480P;
   if (res === "720p") return VideoResolution.VIDEO_RESOLUTION_720P;
+  if (res === "1080p") return VideoResolution.VIDEO_RESOLUTION_1080P;
   throw new Error(`Invalid video resolution: ${res}`);
 }
 
@@ -57,25 +73,39 @@ export interface VideoGenerateOptions {
   resolution?: VideoResolutionName;
   referenceImageUrls?: string[];
   referenceImageFileIds?: string[];
+  referenceAudios?: { voiceId: string }[];
+  generateAudio?: boolean;
+  storageOptions?: StorageOptionsInput;
 }
 
 function imageContent(url?: string, fileId?: string) {
-  if (url) return create(ImageUrlContentSchema, { imageUrl: url });
-  if (fileId) return create(ImageUrlContentSchema, { imageUrl: `file://${fileId}` });
+  if (url) return create(ImageUrlContentSchema, { source: { case: "imageUrl", value: url } });
+  if (fileId) return create(ImageUrlContentSchema, { source: { case: "fileId", value: fileId } });
   return undefined;
 }
 
 function videoContent(url?: string, fileId?: string) {
-  if (url) return create(VideoUrlContentSchema, { url });
-  if (fileId) return create(VideoUrlContentSchema, { url: `file://${fileId}` });
+  if (url) return create(VideoUrlContentSchema, { source: { case: "url", value: url } });
+  if (fileId) return create(VideoUrlContentSchema, { source: { case: "fileId", value: fileId } });
   return undefined;
 }
 
-function makeGenerateRequest(prompt: string, model: string, options: VideoGenerateOptions = {}): GenerateVideoRequest {
+function makeGenerateRequest(
+  prompt: string,
+  model: VideoGenerationModel | (string & {}),
+  options: VideoGenerateOptions = {},
+): GenerateVideoRequest {
   const refs = [
-    ...(options.referenceImageFileIds ?? []).map((id) => create(ImageUrlContentSchema, { imageUrl: `file://${id}` })),
-    ...(options.referenceImageUrls ?? []).map((url) => create(ImageUrlContentSchema, { imageUrl: url })),
+    ...(options.referenceImageFileIds ?? []).map((id) =>
+      create(ImageUrlContentSchema, { source: { case: "fileId", value: id } }),
+    ),
+    ...(options.referenceImageUrls ?? []).map((url) =>
+      create(ImageUrlContentSchema, { source: { case: "imageUrl", value: url } }),
+    ),
   ];
+  const referenceAudios = (options.referenceAudios ?? []).map((audio) =>
+    create(AudioUrlContentSchema, { source: { case: "voiceId", value: audio.voiceId } }),
+  );
   return create(GenerateVideoRequestSchema, {
     prompt,
     model,
@@ -85,19 +115,23 @@ function makeGenerateRequest(prompt: string, model: string, options: VideoGenera
     image: imageContent(options.imageUrl, options.imageFileId),
     video: videoContent(options.videoUrl, options.videoFileId),
     referenceImages: refs,
+    referenceAudios,
+    generateAudio: options.generateAudio,
+    storageOptions: storageOptionsToPb(options.storageOptions),
   });
 }
 
 function makeExtendRequest(
   prompt: string,
-  model: string,
-  options: { videoUrl?: string; videoFileId?: string; duration?: number },
+  model: VideoGenerationModel | (string & {}),
+  options: { videoUrl?: string; videoFileId?: string; duration?: number; storageOptions?: StorageOptionsInput },
 ): ExtendVideoRequest {
   return create(ExtendVideoRequestSchema, {
     prompt,
     model,
     duration: options.duration,
     video: videoContent(options.videoUrl, options.videoFileId),
+    storageOptions: storageOptionsToPb(options.storageOptions),
   });
 }
 
@@ -116,18 +150,37 @@ export class VideoResponse {
   get usage() {
     return this.proto.usage;
   }
+  get costUsd(): number | undefined {
+    return costUsdFromUsage(this.proto.usage);
+  }
   get progress(): number | undefined {
     return this.proto.progress;
   }
   get error() {
     return this.proto.error;
   }
+  get fileOutput(): FileOutputInfo | undefined {
+    return fileOutputFromPb(this.proto.video?.fileOutput);
+  }
+  get storageError(): string | undefined {
+    return this.proto.video?.storageError;
+  }
+  get publicUrl(): string | undefined {
+    return this.fileOutput?.publicUrl;
+  }
+  get publicUrlError(): string | undefined {
+    return this.fileOutput?.publicUrlError;
+  }
 }
 
 export class VideoClient {
   constructor(private stub: VideoRpc) {}
 
-  prepare(prompt: string, model: string, options?: VideoGenerateOptions & { batchRequestId?: string }): BatchRequest {
+  prepare(
+    prompt: string,
+    model: VideoGenerationModel | (string & {}),
+    options?: VideoGenerateOptions & { batchRequestId?: string },
+  ): BatchRequest {
     const request = makeGenerateRequest(prompt, model, options);
     return create(BatchRequestSchema, {
       batchRequestId: options?.batchRequestId ?? "",
@@ -137,8 +190,14 @@ export class VideoClient {
 
   prepareExtension(
     prompt: string,
-    model: string,
-    options: { videoUrl?: string; videoFileId?: string; duration?: number; batchRequestId?: string },
+    model: VideoGenerationModel | (string & {}),
+    options: {
+      videoUrl?: string;
+      videoFileId?: string;
+      duration?: number;
+      batchRequestId?: string;
+      storageOptions?: StorageOptionsInput;
+    },
   ): BatchRequest {
     const request = makeExtendRequest(prompt, model, options);
     return create(BatchRequestSchema, {
@@ -147,7 +206,11 @@ export class VideoClient {
     });
   }
 
-  async start(prompt: string, model: string, options?: VideoGenerateOptions): Promise<DeferredStart> {
+  async start(
+    prompt: string,
+    model: VideoGenerationModel | (string & {}),
+    options?: VideoGenerateOptions,
+  ): Promise<DeferredStart> {
     return this.stub.generateVideo(makeGenerateRequest(prompt, model, options)) as Promise<DeferredStart>;
   }
 
@@ -157,26 +220,32 @@ export class VideoClient {
 
   async generate(
     prompt: string,
-    model: string,
+    model: VideoGenerationModel | (string & {}),
     options?: VideoGenerateOptions & { timeoutMs?: number; intervalMs?: number },
   ): Promise<VideoResponse> {
     const started = await this.start(prompt, model, options);
     const timer = new PollTimer({
-      timeoutMs: options?.timeoutMs ?? 30 * 60 * 1000,
-      intervalMs: options?.intervalMs ?? 1000,
+      timeoutMs: options?.timeoutMs ?? DEFAULT_VIDEO_TIMEOUT,
+      intervalMs: options?.intervalMs ?? DEFAULT_VIDEO_POLL_INTERVAL,
     });
     while (true) {
       const r = await this.get(started.requestId);
       if (r.status === DeferredStatus.DONE) {
         if (!r.response) throw new Error("Video generation done but response missing.");
         if (r.response.error) {
-          throw new Error(r.response.error.message || "Video generation failed");
+          throw new VideoGenerationError(
+            r.response.error.message || "Video generation failed",
+            r.response.error.code || "UNKNOWN",
+          );
         }
         return new VideoResponse(r.response);
       }
       if (r.status === DeferredStatus.EXPIRED) throw new Error("Video generation request expired.");
       if (r.status === DeferredStatus.FAILED) {
-        throw new Error(r.response?.error?.message || "Video generation failed.");
+        throw new VideoGenerationError(
+          r.response?.error?.message || "Video generation failed.",
+          r.response?.error?.code || "UNKNOWN",
+        );
       }
       await timer.waitOrThrow("waiting for video generation");
     }
@@ -184,38 +253,47 @@ export class VideoClient {
 
   async extendStart(
     prompt: string,
-    model: string,
-    options: { videoUrl?: string; videoFileId?: string; duration?: number },
+    model: VideoGenerationModel | (string & {}),
+    options: { videoUrl?: string; videoFileId?: string; duration?: number; storageOptions?: StorageOptionsInput },
   ): Promise<DeferredStart> {
     return this.stub.extendVideo(makeExtendRequest(prompt, model, options)) as Promise<DeferredStart>;
   }
 
   async extend(
     prompt: string,
-    model: string,
+    model: VideoGenerationModel | (string & {}),
     options: {
       videoUrl?: string;
       videoFileId?: string;
       duration?: number;
+      storageOptions?: StorageOptionsInput;
       timeoutMs?: number;
       intervalMs?: number;
     },
   ): Promise<VideoResponse> {
     const started = await this.extendStart(prompt, model, options);
     const timer = new PollTimer({
-      timeoutMs: options.timeoutMs ?? 30 * 60 * 1000,
-      intervalMs: options.intervalMs ?? 1000,
+      timeoutMs: options.timeoutMs ?? DEFAULT_VIDEO_TIMEOUT,
+      intervalMs: options.intervalMs ?? DEFAULT_VIDEO_POLL_INTERVAL,
     });
     while (true) {
       const r = await this.get(started.requestId);
       if (r.status === DeferredStatus.DONE) {
         if (!r.response) throw new Error("Video extension done but response missing.");
-        if (r.response.error) throw new Error(r.response.error.message || "Video extension failed");
+        if (r.response.error) {
+          throw new VideoGenerationError(
+            r.response.error.message || "Video extension failed",
+            r.response.error.code || "UNKNOWN",
+          );
+        }
         return new VideoResponse(r.response);
       }
       if (r.status === DeferredStatus.EXPIRED) throw new Error("Video extension request expired.");
       if (r.status === DeferredStatus.FAILED) {
-        throw new Error(r.response?.error?.message || "Video extension failed.");
+        throw new VideoGenerationError(
+          r.response?.error?.message || "Video extension failed.",
+          r.response?.error?.code || "UNKNOWN",
+        );
       }
       await timer.waitOrThrow("waiting for video extension");
     }

@@ -26,4 +26,15 @@ export class XAIError extends Error {
   }
 }
 
+/** Raised when the API reports that video generation or extension failed. */
+export class VideoGenerationError extends Error {
+  readonly code: string;
+
+  constructor(message: string, code: string) {
+    super(message);
+    this.name = "VideoGenerationError";
+    this.code = code;
+  }
+}
+
 export { Code, ConnectError };

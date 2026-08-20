@@ -4,6 +4,8 @@
 
 import type { GenEnum, GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
 import { enumDesc, fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
+import type { Timestamp } from "@bufbuild/protobuf/wkt";
+import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
 import type { SamplingUsage } from "./usage_pb.js";
 import { file_xai_api_v1_usage } from "./usage_pb.js";
 import type { Message } from "@bufbuild/protobuf";
@@ -12,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file xai/api/v1/image.proto.
  */
 export const file_xai_api_v1_image: GenFile = /*@__PURE__*/
-  fileDesc("ChZ4YWkvYXBpL3YxL2ltYWdlLnByb3RvEgd4YWlfYXBpIuECChRHZW5lcmF0ZUltYWdlUmVxdWVzdBIOCgZwcm9tcHQYASABKAkSJwoFaW1hZ2UYBSABKAsyGC54YWlfYXBpLkltYWdlVXJsQ29udGVudBINCgVtb2RlbBgCIAEoCRIOCgFuGAMgASgFSACIAQESDAoEdXNlchgEIAEoCRIkCgZmb3JtYXQYCyABKA4yFC54YWlfYXBpLkltYWdlRm9ybWF0EjQKDGFzcGVjdF9yYXRpbxgOIAEoDjIZLnhhaV9hcGkuSW1hZ2VBc3BlY3RSYXRpb0gBiAEBEjEKCnJlc29sdXRpb24YDyABKA4yGC54YWlfYXBpLkltYWdlUmVzb2x1dGlvbkgCiAEBEigKBmltYWdlcxgRIAMoCzIYLnhhaV9hcGkuSW1hZ2VVcmxDb250ZW50QgQKAl9uQg8KDV9hc3BlY3RfcmF0aW9CDQoLX3Jlc29sdXRpb25KBAgNEA4ibgoNSW1hZ2VSZXNwb25zZRInCgZpbWFnZXMYASADKAsyFy54YWlfYXBpLkdlbmVyYXRlZEltYWdlEg0KBW1vZGVsGAIgASgJEiUKBXVzYWdlGAMgASgLMhYueGFpX2FwaS5TYW1wbGluZ1VzYWdlIlwKDkdlbmVyYXRlZEltYWdlEhAKBmJhc2U2NBgBIAEoCUgAEg0KA3VybBgDIAEoCUgAEhoKEnJlc3BlY3RfbW9kZXJhdGlvbhgEIAEoCEIHCgVpbWFnZUoECAIQAyJKCg9JbWFnZVVybENvbnRlbnQSEQoJaW1hZ2VfdXJsGAEgASgJEiQKBmRldGFpbBgCIAEoDjIULnhhaV9hcGkuSW1hZ2VEZXRhaWwqUwoLSW1hZ2VEZXRhaWwSEgoOREVUQUlMX0lOVkFMSUQQABIPCgtERVRBSUxfQVVUTxABEg4KCkRFVEFJTF9MT1cQAhIPCgtERVRBSUxfSElHSBADKlAKC0ltYWdlRm9ybWF0EhYKEklNR19GT1JNQVRfSU5WQUxJRBAAEhUKEUlNR19GT1JNQVRfQkFTRTY0EAESEgoOSU1HX0ZPUk1BVF9VUkwQAipqCgxJbWFnZVF1YWxpdHkSFwoTSU1HX1FVQUxJVFlfSU5WQUxJRBAAEhMKD0lNR19RVUFMSVRZX0xPVxABEhYKEklNR19RVUFMSVRZX01FRElVTRACEhQKEElNR19RVUFMSVRZX0hJR0gQAyqnAwoQSW1hZ2VBc3BlY3RSYXRpbxIcChhJTUdfQVNQRUNUX1JBVElPX0lOVkFMSUQQABIYChRJTUdfQVNQRUNUX1JBVElPXzFfMRABEhgKFElNR19BU1BFQ1RfUkFUSU9fM180EAISGAoUSU1HX0FTUEVDVF9SQVRJT180XzMQAxIZChVJTUdfQVNQRUNUX1JBVElPXzlfMTYQBBIZChVJTUdfQVNQRUNUX1JBVElPXzE2XzkQBRIYChRJTUdfQVNQRUNUX1JBVElPXzJfMxAGEhgKFElNR19BU1BFQ1RfUkFUSU9fM18yEAcSGQoVSU1HX0FTUEVDVF9SQVRJT19BVVRPEAgSGwoXSU1HX0FTUEVDVF9SQVRJT185XzE5XzUQCRIbChdJTUdfQVNQRUNUX1JBVElPXzE5XzVfORAKEhkKFUlNR19BU1BFQ1RfUkFUSU9fOV8yMBALEhkKFUlNR19BU1BFQ1RfUkFUSU9fMjBfORAMEhgKFElNR19BU1BFQ1RfUkFUSU9fMV8yEA0SGAoUSU1HX0FTUEVDVF9SQVRJT18yXzEQDipbCg9JbWFnZVJlc29sdXRpb24SGgoWSU1HX1JFU09MVVRJT05fSU5WQUxJRBAAEhUKEUlNR19SRVNPTFVUSU9OXzFLEAESFQoRSU1HX1JFU09MVVRJT05fMksQAjJRCgVJbWFnZRJICg1HZW5lcmF0ZUltYWdlEh0ueGFpX2FwaS5HZW5lcmF0ZUltYWdlUmVxdWVzdBoWLnhhaV9hcGkuSW1hZ2VSZXNwb25zZSIAQlEKC2NvbS54YWlfYXBpQgpJbWFnZVByb3RvUAGiAgNYWFiqAgZYYWlBcGnKAgZYYWlBcGniAhJYYWlBcGlcR1BCTWV0YWRhdGHqAgZYYWlBcGliBnByb3RvMw", [file_xai_api_v1_usage]);
+  fileDesc("ChZ4YWkvYXBpL3YxL2ltYWdlLnByb3RvEgd4YWlfYXBpIuUDChRHZW5lcmF0ZUltYWdlUmVxdWVzdBIOCgZwcm9tcHQYASABKAkSJwoFaW1hZ2UYBSABKAsyGC54YWlfYXBpLkltYWdlVXJsQ29udGVudBINCgVtb2RlbBgCIAEoCRIOCgFuGAMgASgFSACIAQESDAoEdXNlchgEIAEoCRIkCgZmb3JtYXQYCyABKA4yFC54YWlfYXBpLkltYWdlRm9ybWF0EisKB3F1YWxpdHkYDCABKA4yFS54YWlfYXBpLkltYWdlUXVhbGl0eUgBiAEBEjQKDGFzcGVjdF9yYXRpbxgOIAEoDjIZLnhhaV9hcGkuSW1hZ2VBc3BlY3RSYXRpb0gCiAEBEjEKCnJlc29sdXRpb24YDyABKA4yGC54YWlfYXBpLkltYWdlUmVzb2x1dGlvbkgDiAEBEigKBmltYWdlcxgRIAMoCzIYLnhhaV9hcGkuSW1hZ2VVcmxDb250ZW50EjUKD3N0b3JhZ2Vfb3B0aW9ucxgTIAEoCzIXLnhhaV9hcGkuU3RvcmFnZU9wdGlvbnNIBIgBAUIECgJfbkIKCghfcXVhbGl0eUIPCg1fYXNwZWN0X3JhdGlvQg0KC19yZXNvbHV0aW9uQhIKEF9zdG9yYWdlX29wdGlvbnNKBAgNEA4ibgoNSW1hZ2VSZXNwb25zZRInCgZpbWFnZXMYASADKAsyFy54YWlfYXBpLkdlbmVyYXRlZEltYWdlEg0KBW1vZGVsGAIgASgJEiUKBXVzYWdlGAMgASgLMhYueGFpX2FwaS5TYW1wbGluZ1VzYWdlIskBCg5HZW5lcmF0ZWRJbWFnZRIQCgZiYXNlNjQYASABKAlIABINCgN1cmwYAyABKAlIABIaChJyZXNwZWN0X21vZGVyYXRpb24YBCABKAgSLQoLZmlsZV9vdXRwdXQYCCABKAsyEy54YWlfYXBpLkZpbGVPdXRwdXRIAYgBARIaCg1zdG9yYWdlX2Vycm9yGAkgASgJSAKIAQFCBwoFaW1hZ2VCDgoMX2ZpbGVfb3V0cHV0QhAKDl9zdG9yYWdlX2Vycm9ySgQIAhADIpMBCg5TdG9yYWdlT3B0aW9ucxIQCghmaWxlbmFtZRgBIAEoCRIaCg1leHBpcmVzX2FmdGVyGAIgASgDSACIAQESMgoKcHVibGljX3VybBgDIAEoCzIZLnhhaV9hcGkuUHVibGljVXJsT3B0aW9uc0gBiAEBQhAKDl9leHBpcmVzX2FmdGVyQg0KC19wdWJsaWNfdXJsIkAKEFB1YmxpY1VybE9wdGlvbnMSGgoNZXhwaXJlc19hZnRlchgBIAEoA0gAiAEBQhAKDl9leHBpcmVzX2FmdGVyIq8CCgpGaWxlT3V0cHV0Eg8KB2ZpbGVfaWQYASABKAkSEAoIZmlsZW5hbWUYAiABKAkSFwoKcHVibGljX3VybBgEIAEoCUgAiAEBEj4KFXB1YmxpY191cmxfZXhwaXJlc19hdBgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBIAYgBARIzCgpleHBpcmVzX2F0GAYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcEgCiAEBEh0KEHB1YmxpY191cmxfZXJyb3IYByABKAlIA4gBAUINCgtfcHVibGljX3VybEIYChZfcHVibGljX3VybF9leHBpcmVzX2F0Qg0KC19leHBpcmVzX2F0QhMKEV9wdWJsaWNfdXJsX2Vycm9ySgQIAxAEImkKD0ltYWdlVXJsQ29udGVudBITCglpbWFnZV91cmwYASABKAlIABIRCgdmaWxlX2lkGAMgASgJSAASJAoGZGV0YWlsGAIgASgOMhQueGFpX2FwaS5JbWFnZURldGFpbEIICgZzb3VyY2UqUwoLSW1hZ2VEZXRhaWwSEgoOREVUQUlMX0lOVkFMSUQQABIPCgtERVRBSUxfQVVUTxABEg4KCkRFVEFJTF9MT1cQAhIPCgtERVRBSUxfSElHSBADKlAKC0ltYWdlRm9ybWF0EhYKEklNR19GT1JNQVRfSU5WQUxJRBAAEhUKEUlNR19GT1JNQVRfQkFTRTY0EAESEgoOSU1HX0ZPUk1BVF9VUkwQAipqCgxJbWFnZVF1YWxpdHkSFwoTSU1HX1FVQUxJVFlfSU5WQUxJRBAAEhMKD0lNR19RVUFMSVRZX0xPVxABEhYKEklNR19RVUFMSVRZX01FRElVTRACEhQKEElNR19RVUFMSVRZX0hJR0gQAyqnAwoQSW1hZ2VBc3BlY3RSYXRpbxIcChhJTUdfQVNQRUNUX1JBVElPX0lOVkFMSUQQABIYChRJTUdfQVNQRUNUX1JBVElPXzFfMRABEhgKFElNR19BU1BFQ1RfUkFUSU9fM180EAISGAoUSU1HX0FTUEVDVF9SQVRJT180XzMQAxIZChVJTUdfQVNQRUNUX1JBVElPXzlfMTYQBBIZChVJTUdfQVNQRUNUX1JBVElPXzE2XzkQBRIYChRJTUdfQVNQRUNUX1JBVElPXzJfMxAGEhgKFElNR19BU1BFQ1RfUkFUSU9fM18yEAcSGQoVSU1HX0FTUEVDVF9SQVRJT19BVVRPEAgSGwoXSU1HX0FTUEVDVF9SQVRJT185XzE5XzUQCRIbChdJTUdfQVNQRUNUX1JBVElPXzE5XzVfORAKEhkKFUlNR19BU1BFQ1RfUkFUSU9fOV8yMBALEhkKFUlNR19BU1BFQ1RfUkFUSU9fMjBfORAMEhgKFElNR19BU1BFQ1RfUkFUSU9fMV8yEA0SGAoUSU1HX0FTUEVDVF9SQVRJT18yXzEQDipbCg9JbWFnZVJlc29sdXRpb24SGgoWSU1HX1JFU09MVVRJT05fSU5WQUxJRBAAEhUKEUlNR19SRVNPTFVUSU9OXzFLEAESFQoRSU1HX1JFU09MVVRJT05fMksQAjJRCgVJbWFnZRJICg1HZW5lcmF0ZUltYWdlEh0ueGFpX2FwaS5HZW5lcmF0ZUltYWdlUmVxdWVzdBoWLnhhaV9hcGkuSW1hZ2VSZXNwb25zZSIAQlEKC2NvbS54YWlfYXBpQgpJbWFnZVByb3RvUAGiAgNYWFiqAgZYYWlBcGnKAgZYYWlBcGniAhJYYWlBcGlcR1BCTWV0YWRhdGHqAgZYYWlBcGliBnByb3RvMw", [file_google_protobuf_timestamp, file_xai_api_v1_usage]);
 
 /**
  * Request message for generating an image.
@@ -66,6 +68,14 @@ export type GenerateImageRequest = Message<"xai_api.GenerateImageRequest"> & {
   format: ImageFormat;
 
   /**
+   * Optional quality for image generation.
+   * Only supported by grok-imagine-image-2.0. Defaults to medium.
+   *
+   * @generated from field: optional xai_api.ImageQuality quality = 12;
+   */
+  quality?: ImageQuality | undefined;
+
+  /**
    * Optional aspect ratio for image generation/editing.
    * Only supported by grok-imagine models.
    * Defaults to 1:1 if not specified. Auto is only supported for image generation
@@ -95,6 +105,13 @@ export type GenerateImageRequest = Message<"xai_api.GenerateImageRequest"> & {
    * @generated from field: repeated xai_api.ImageUrlContent images = 17;
    */
   images: ImageUrlContent[];
+
+  /**
+   * Optional options for persisting the generated image(s) to the Files API.
+   *
+   * @generated from field: optional xai_api.StorageOptions storage_options = 19;
+   */
+  storageOptions?: StorageOptions | undefined;
 };
 
 /**
@@ -178,6 +195,20 @@ export type GeneratedImage = Message<"xai_api.GeneratedImage"> & {
    * @generated from field: bool respect_moderation = 4;
    */
   respectModeration: boolean;
+
+  /**
+   * Details of the stored file when `storage_options` was set on the request.
+   *
+   * @generated from field: optional xai_api.FileOutput file_output = 8;
+   */
+  fileOutput?: FileOutput | undefined;
+
+  /**
+   * Populated instead of `file_output` when persisting the image failed.
+   *
+   * @generated from field: optional string storage_error = 9;
+   */
+  storageError?: string | undefined;
 };
 
 /**
@@ -186,6 +217,118 @@ export type GeneratedImage = Message<"xai_api.GeneratedImage"> & {
  */
 export const GeneratedImageSchema: GenMessage<GeneratedImage> = /*@__PURE__*/
   messageDesc(file_xai_api_v1_image, 2);
+
+/**
+ * Options for persisting a generated asset to the Files API.
+ *
+ * @generated from message xai_api.StorageOptions
+ */
+export type StorageOptions = Message<"xai_api.StorageOptions"> & {
+  /**
+   * Name to store the generated file under. Required.
+   *
+   * @generated from field: string filename = 1;
+   */
+  filename: string;
+
+  /**
+   * Optional time-to-live in seconds, after which the file is deleted.
+   *
+   * @generated from field: optional int64 expires_after = 2;
+   */
+  expiresAfter?: bigint | undefined;
+
+  /**
+   * Optional request to also create a publicly accessible URL for the file.
+   *
+   * @generated from field: optional xai_api.PublicUrlOptions public_url = 3;
+   */
+  publicUrl?: PublicUrlOptions | undefined;
+};
+
+/**
+ * Describes the message xai_api.StorageOptions.
+ * Use `create(StorageOptionsSchema)` to create a new message.
+ */
+export const StorageOptionsSchema: GenMessage<StorageOptions> = /*@__PURE__*/
+  messageDesc(file_xai_api_v1_image, 3);
+
+/**
+ * Options controlling creation of a public URL for a stored file.
+ *
+ * @generated from message xai_api.PublicUrlOptions
+ */
+export type PublicUrlOptions = Message<"xai_api.PublicUrlOptions"> & {
+  /**
+   * Optional independent expiry for the public URL, in seconds.
+   *
+   * @generated from field: optional int64 expires_after = 1;
+   */
+  expiresAfter?: bigint | undefined;
+};
+
+/**
+ * Describes the message xai_api.PublicUrlOptions.
+ * Use `create(PublicUrlOptionsSchema)` to create a new message.
+ */
+export const PublicUrlOptionsSchema: GenMessage<PublicUrlOptions> = /*@__PURE__*/
+  messageDesc(file_xai_api_v1_image, 4);
+
+/**
+ * Details of a generated asset that was persisted to the Files API.
+ *
+ * @generated from message xai_api.FileOutput
+ */
+export type FileOutput = Message<"xai_api.FileOutput"> & {
+  /**
+   * The id of the stored file.
+   *
+   * @generated from field: string file_id = 1;
+   */
+  fileId: string;
+
+  /**
+   * The name the file was stored under.
+   *
+   * @generated from field: string filename = 2;
+   */
+  filename: string;
+
+  /**
+   * The public URL, if one was requested and created successfully.
+   *
+   * @generated from field: optional string public_url = 4;
+   */
+  publicUrl?: string | undefined;
+
+  /**
+   * When the public URL expires.
+   *
+   * @generated from field: optional google.protobuf.Timestamp public_url_expires_at = 5;
+   */
+  publicUrlExpiresAt?: Timestamp | undefined;
+
+  /**
+   * When the stored file expires.
+   *
+   * @generated from field: optional google.protobuf.Timestamp expires_at = 6;
+   */
+  expiresAt?: Timestamp | undefined;
+
+  /**
+   * Populated instead of `public_url` when creating the public URL failed.
+   *
+   * @generated from field: optional string public_url_error = 7;
+   */
+  publicUrlError?: string | undefined;
+};
+
+/**
+ * Describes the message xai_api.FileOutput.
+ * Use `create(FileOutputSchema)` to create a new message.
+ */
+export const FileOutputSchema: GenMessage<FileOutput> = /*@__PURE__*/
+  messageDesc(file_xai_api_v1_image, 5);
 
 /**
  * Contains data relating to an image that is provided to the model.
@@ -202,9 +345,25 @@ export type ImageUrlContent = Message<"xai_api.ImageUrlContent"> & {
    * The image size is limited to 10 MiB. If the image download fails, the API
    * request will fail as well.
    *
-   * @generated from field: string image_url = 1;
+   * @generated from oneof xai_api.ImageUrlContent.source
    */
-  imageUrl: string;
+  source: {
+    /**
+     * An image URL or a base64-encoded version of the image.
+     *
+     * @generated from field: string image_url = 1;
+     */
+    value: string;
+    case: "imageUrl";
+  } | {
+    /**
+     * The id of a file previously uploaded to the Files API.
+     *
+     * @generated from field: string file_id = 3;
+     */
+    value: string;
+    case: "fileId";
+  } | { case: undefined; value?: undefined };
 
   /**
    * The level of pre-processing resolution that will be applied to the image.
@@ -219,7 +378,7 @@ export type ImageUrlContent = Message<"xai_api.ImageUrlContent"> & {
  * Use `create(ImageUrlContentSchema)` to create a new message.
  */
 export const ImageUrlContentSchema: GenMessage<ImageUrlContent> = /*@__PURE__*/
-  messageDesc(file_xai_api_v1_image, 3);
+  messageDesc(file_xai_api_v1_image, 6);
 
 /**
  * Indicates the level of preprocessing to apply to images that will be fed to

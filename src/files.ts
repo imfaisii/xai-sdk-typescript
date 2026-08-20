@@ -180,6 +180,7 @@ export class FilesClient {
     order?: FileOrder;
     sortBy?: FileSortBy;
     paginationToken?: string;
+    filter?: string;
   }): Promise<ListFilesResponse> {
     return this.stub.listFiles(
       create(ListFilesRequestSchema, {
@@ -187,6 +188,7 @@ export class FilesClient {
         order: options?.order ? orderToPb(options.order) : undefined,
         sortBy: options?.sortBy ? sortByToPb(options.sortBy) : undefined,
         paginationToken: options?.paginationToken,
+        filter: options?.filter,
       }),
     );
   }

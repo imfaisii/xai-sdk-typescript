@@ -45,13 +45,33 @@ enum VideoResolution {
   // 720p resolution.
   // Dimensions vary by aspect ratio
   VIDEO_RESOLUTION_720P = 2;
+
+  // 1080p resolution.
+  // Only supported by models that advertise 1080p (e.g. grok-imagine-video-1.5
+  // for image-to-video).
+  VIDEO_RESOLUTION_1080P = 3;
 }
 
 // Specifies a video by URL for video editing.
 message VideoUrlContent {
-  // Either a URL of the video (e.g., a public URL) or a base64-encoded video
-  // as a data URL (e.g., "data:video/mp4;base64,...").
-  string url = 1;
+  oneof source {
+    // Either a URL of the video (e.g., a public URL) or a base64-encoded video
+    // as a data URL (e.g., "data:video/mp4;base64,...").
+    string url = 1;
+
+    // The id of a video file previously uploaded to the Files API.
+    string file_id = 2;
+  }
+}
+
+// Specifies an audio source used as a reference for video generation.
+message AudioUrlContent {
+  reserved 1;
+
+  oneof source {
+    // The id of a built-in voice to use for the generated audio (e.g. "ara").
+    string voice_id = 2;
+  }
 }
 
 // An API service for interaction with video generation models.
@@ -110,6 +130,16 @@ message GenerateVideoRequest {
   // When provided (and `image` is not set), generates video using these images
   // as style/content references.
   repeated ImageUrlContent reference_images = 13;
+
+  // Optional options for persisting the generated video to the Files API.
+  optional StorageOptions storage_options = 14;
+
+  // Optional reference audio sources for reference-to-video generation.
+  // Only supported by grok-imagine-video-1.5.
+  repeated AudioUrlContent reference_audios = 16;
+
+  // Whether the generated video includes audio. Defaults to true when omitted.
+  optional bool generate_audio = 17;
 }
 
 // Request for retrieving deferred video generation results.
@@ -154,6 +184,12 @@ message GeneratedVideo {
   // The field will be true if the video respects moderation rules. Otherwise
   // the field will be false and the video url field will be empty.
   bool respect_moderation = 5;
+
+  // Details of the stored file when `storage_options` was set on the request.
+  optional FileOutput file_output = 6;
+
+  // Populated instead of `file_output` when persisting the video failed.
+  optional string storage_error = 7;
 }
 
 // Response from GetDeferredVideo, including the response if the video
@@ -191,4 +227,7 @@ message ExtendVideoRequest {
   // Duration of the extension segment to generate in seconds (1-10).
   // Defaults to 6 seconds if not specified.
   optional int32 duration = 4;
+
+  // Optional options for persisting the extended video to the Files API.
+  optional StorageOptions storage_options = 6;
 }
