@@ -22,7 +22,15 @@ if [[ "${1:-}" != "" ]]; then
     pkg.version = process.argv[1];
     fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
   " "$NEW_VERSION"
-  printf 'export const VERSION = "%s";\n' "$NEW_VERSION" > src/version.ts
+  node -e '
+    const fs = require("fs");
+    const p = "src/version.ts";
+    const next = process.argv[1];
+    const s = fs.readFileSync(p, "utf8");
+    const out = s.replace(/(export const VERSION = ")[^"]+(";)/, `$1${next}$2`);
+    if (out === s) { console.error("Could not find VERSION in " + p); process.exit(1); }
+    fs.writeFileSync(p, out);
+  ' "$NEW_VERSION"
   echo "Bumped version to $NEW_VERSION"
 fi
 

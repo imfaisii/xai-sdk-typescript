@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import pkg from "../package.json";
 import { create } from "@bufbuild/protobuf";
 import {
   text,
@@ -37,7 +38,7 @@ import { tmpdir } from "node:os";
 
 describe("version", () => {
   test("exposes package version", () => {
-    expect(VERSION).toBe("0.1.2");
+    expect(VERSION).toBe(pkg.version);
   });
 });
 
