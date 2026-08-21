@@ -180,3 +180,29 @@ describe("conversationId sticky cache header", () => {
     expect(chat.proto.storeMessages ?? false).toBe(false);
   });
 });
+
+describe("per-call headers vs client metadata", () => {
+  test("chat conversationId wins over client-wide x-grok-conv-id metadata", async () => {
+    const { authInterceptor } = await import("../src/transport.js");
+    const interceptor = authInterceptor("k", { "x-grok-conv-id": "client-wide", "user-agent": "ua" });
+
+    const req = { header: new Headers() } as { header: Headers };
+    req.header.set("x-grok-conv-id", "per-chat");
+
+    await interceptor((async (r: unknown) => r) as never)(req as never);
+
+    expect(req.header.get("x-grok-conv-id")).toBe("per-chat");
+    expect(req.header.get("user-agent")).toBe("ua");
+    expect(req.header.get("Authorization")).toBe("Bearer k");
+  });
+
+  test("client metadata still applies when the chat sets no conversationId", async () => {
+    const { authInterceptor } = await import("../src/transport.js");
+    const interceptor = authInterceptor("k", { "x-grok-conv-id": "client-wide" });
+
+    const req = { header: new Headers() } as { header: Headers };
+    await interceptor((async (r: unknown) => r) as never)(req as never);
+
+    expect(req.header.get("x-grok-conv-id")).toBe("client-wide");
+  });
+});

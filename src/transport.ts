@@ -74,10 +74,13 @@ export function resolveConfig(options: ClientOptions = {}): ResolvedClientConfig
   };
 }
 
-function authInterceptor(apiKey: string, metadata: Record<string, string>): Interceptor {
+export function authInterceptor(apiKey: string, metadata: Record<string, string>): Interceptor {
   return (next) => async (req) => {
     req.header.set("Authorization", `Bearer ${apiKey}`);
     for (const [k, v] of Object.entries(metadata)) {
+      // Per-call headers (e.g. a Chat's x-grok-conv-id) win over client metadata,
+      // so one client can serve many conversations without losing sticky routing.
+      if (req.header.has(k)) continue;
       req.header.set(k, v);
     }
     return next(req);

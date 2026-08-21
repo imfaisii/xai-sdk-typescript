@@ -107,8 +107,44 @@ Best practices:
 4. If you resend full history instead of chaining, don’t edit/reorder earlier turns.
 5. Watch `usage.cachedPromptTextTokens` — stuck at `0` usually means the id/header/routing is wrong.
 6. One-shot helpers (titles, classifiers): omit `conversationId` or use a unique id; keep `storeMessages: false` (the default).
+7. Front-load static content (system prompt, few-shot examples, reference docs) so the stable prefix is as long as possible.
+8. On reasoning models, replay `reasoningContent` from prior turns (`chat.append(response)` does this), or set `useEncryptedContent: true`. Dropping it is the top cause of cache misses.
+9. Cache hits are best-effort. Entries get evicted, so the app must still work at full price.
 
-You can also set client-wide metadata `x-grok-conv-id`, but per-chat `conversationId` is correct for concurrent threads (it wins on that header).
+You can also set client-wide metadata `x-grok-conv-id`, but per-chat `conversationId` is correct for concurrent threads — a per-chat value wins over client metadata on that header.
+
+### Context compaction (long agent loops)
+
+Once a conversation gets long, every turn re-pays input tokens for the whole history. `chat.compact()` folds the messages into one opaque blob and replaces the chat's messages with it in place, so later `sample()` calls run on top of the compacted context.
+
+```ts
+const chat = client.chat.create({
+  model: "grok-4.6",
+  conversationId,
+  useEncryptedContent: true, // keeps prior reasoning through the compaction
+});
+chat.append(system("You are helpful. Keep answers brief."));
+
+for (let turn = 1; turn <= 100; turn++) {
+  chat.append(user(nextUserMessage()));
+  const res = await chat.sample();
+  chat.append(res);
+
+  if (turn % 5 === 0) {
+    const c = await chat.compact();
+    console.log(`compacted, dropped ${c.droppedMessageCount} messages`);
+  }
+}
+```
+
+Rules:
+
+1. Treat `encryptedContent` as opaque. Never parse, edit, or merge blobs.
+2. The compaction item becomes the new head. Only append new turns after it.
+3. Compaction shrinks a conversation; it cannot rescue one already over the context limit.
+4. Re-compacting later is fine.
+5. The compaction call itself costs tokens (`compact.usage`), so compact every N turns, not every turn.
+6. Set `useEncryptedContent: true` on reasoning models so prior reasoning survives.
 
 ### Streaming
 

@@ -745,7 +745,7 @@ export class Chat {
             create(MessageSchema, {
               role: output.message?.role ?? MessageRole.ROLE_ASSISTANT,
               content: [text(output.message?.content ?? "")],
-              reasoningContent: output.message?.reasoningContent,
+              reasoningContent: output.message?.reasoningContent || undefined,
               encryptedContent: output.message?.encryptedContent ?? "",
               toolCalls: output.message?.toolCalls ?? [],
               toolCallId: replayToolCallId(output.message),
