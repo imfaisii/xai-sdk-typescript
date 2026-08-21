@@ -123,7 +123,11 @@ jobs:
 
           npm publish --access public --ignore-scripts
 
+      # Runs even if the npm step failed: a tag that is already on npm still
+      # deserves its release page, and a failed publish is easier to read next
+      # to published notes than with no release at all.
       - name: Create GitHub Release
+        if: always() && steps.meta.outputs.version != ''
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
