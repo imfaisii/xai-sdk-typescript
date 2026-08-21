@@ -323,6 +323,8 @@ Publishing is automated by [`.github/workflows/release.yml`](.github/workflows/r
 Pushing tag `v*` runs CI build/tests, `npm publish`, and creates a GitHub Release with notes.  
 Creating a GitHub Release from an existing `v*` tag also triggers publish (skips npm if that version already exists).
 
+Let CI own the publish. Running `npm publish` locally for a version CI is already building makes the CI job fail with `E403 cannot publish over the previously published versions` — npm accepted the first upload and rejects the second.
+
 ## License
 
 Apache-2.0 — same as the Python SDK and xAI protos where applicable.

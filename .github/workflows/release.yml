@@ -102,6 +102,7 @@ jobs:
         if: steps.meta.outputs.already_published != 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ steps.meta.outputs.version }}
         run: |
           set -euo pipefail
           if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
@@ -112,6 +113,14 @@ jobs:
             echo "Re-run this workflow after saving the secret."
             exit 1
           fi
+
+          # Re-check here, not just in the meta step: a local `npm publish` can land
+          # while this job builds, and publishing over an existing version is a 403.
+          if npm view "xai-sdk-js@${VERSION}" version >/dev/null 2>&1; then
+            echo "xai-sdk-js@${VERSION} is already on npm — skipping publish."
+            exit 0
+          fi
+
           npm publish --access public --ignore-scripts
 
       - name: Create GitHub Release
