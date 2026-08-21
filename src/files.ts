@@ -1,6 +1,4 @@
 import { create } from "@bufbuild/protobuf";
-import { readFile } from "node:fs/promises";
-import { basename } from "node:path";
 import type { Client as ConnectClient } from "@connectrpc/connect";
 import {
   CreatePublicUrlRequestSchema,
@@ -27,6 +25,13 @@ export type FileOrder = "asc" | "desc";
 export type FileSortBy = "created_at" | "filename" | "size";
 
 const CHUNK_SIZE = 3 * 1024 * 1024;
+
+/** Runtime-neutral last path segment, for file-like objects whose `name` isn't a Node path. */
+function basenameOf(path: string): string {
+  const trimmed = path.replace(/[/\\]+$/, "");
+  const idx = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
+  return idx === -1 ? trimmed : trimmed.slice(idx + 1);
+}
 
 function orderToPb(order: FileOrder): Ordering {
   return order === "asc" ? Ordering.ASCENDING : Ordering.DESCENDING;
@@ -119,6 +124,8 @@ export class FilesClient {
     let data: Uint8Array;
 
     if (typeof file === "string") {
+      const { readFile } = await import("node:fs/promises");
+      const { basename } = await import("node:path");
       data = new Uint8Array(await readFile(file));
       filename = filename ?? basename(file);
     } else if (file instanceof Uint8Array) {
@@ -130,7 +137,7 @@ export class FilesClient {
     } else if (file && typeof file === "object" && "read" in file) {
       const buf = await file.read();
       data = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
-      filename = filename ?? (typeof file.name === "string" ? basename(file.name) : undefined);
+      filename = filename ?? (typeof file.name === "string" ? basenameOf(file.name) : undefined);
       if (!filename) throw new Error("filename is required when uploading a file-like object without a name");
     } else {
       throw new Error(`Unsupported file type: ${typeof file}`);

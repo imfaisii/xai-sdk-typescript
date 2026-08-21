@@ -2,7 +2,7 @@
 
 TypeScript/JavaScript SDK for the [xAI API](https://docs.x.ai), ported from the official [xai-sdk](https://github.com/xai-org/xai-sdk-python) Python package.
 
-Talks to `api.x.ai` over **gRPC** (Connect-ES). Async-first. Node.js 18+.
+Talks to `api.x.ai` over **gRPC** (Connect-ES). Async-first. Node.js 18+, plus a fetch-only build for [Cloudflare Workers and other edge runtimes](#cloudflare-workers--edge-runtimes).
 
 ## Install
 
@@ -246,6 +246,31 @@ await client.collections.uploadDocument(col.collectionId, "readme.md", "# Hello"
 });
 const hits = await client.collections.search("hello", [col.collectionId], { limit: 5 });
 ```
+
+## Cloudflare Workers / edge runtimes
+
+The default entry point uses gRPC over HTTP/2 (`node:http2`), which Cloudflare Workers ship only as a non-functional stub. Import the `web` entry point instead — it speaks gRPC-Web over `fetch` and pulls in no Node built-ins.
+
+```ts
+import { Client, user } from "xai-sdk-js/web";
+
+export default {
+  async fetch(request: Request, env: { XAI_API_KEY: string }) {
+    const client = new Client({ apiKey: env.XAI_API_KEY });
+    const chat = client.chat.create({ model: "grok-4" });
+    chat.append(user("Hello from the edge."));
+    const res = await chat.sample();
+    return new Response(res.content);
+  },
+};
+```
+
+The API surface is identical to the Node entry point, with two differences:
+
+1. No dotenv loading. Pass `apiKey` explicitly, or bind `XAI_API_KEY` as a Worker secret. `loadEnvFiles` / `parseEnvFile` are not exported.
+2. `client.files.upload("./path.pdf")` needs a filesystem. Pass a `Uint8Array`, `Blob`, or `File` instead.
+
+Bundlers that honor the `worker` or `browser` export conditions pick this build automatically from a plain `xai-sdk-js` import. The explicit `xai-sdk-js/web` subpath always works.
 
 ## Client options
 
